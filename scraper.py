@@ -1,43 +1,86 @@
 #import bibliotek
-from requests import get
+import requests
 from bs4 import BeautifulSoup
+import pprint
+import json
 
-#adres strony z opiniami
-url ="https://www.ceneo.pl/86198612#tab=reviews_scroll"
+#funkcja do ekstrakcji składowych opinii
+def extract_feature(opinion, selector, attribute = None):
+    try:
+        if not attribute:
+            return opinion.select(selector).pop().get_text().strip()
+        else:
+            return opinion.select(selector).pop()[attribute]
+    except IndexError:
+        return None
 
-#pobranie kodu HTML strony projektu URL
-page = get(url).text
-page_tree = BeautifulSoup(page, "html.parser")
-#print(page_tree.prettify())
+#lista składowych opinii wraz z selektorami i atrybutami
+selectors = {
+    "author": ['div.reviewer-name-line'],
+    "recomendation":['div.product-review-summary > em'],
+    "stars":['span.review-score-count'],
+    "content": ['p.product-review-body'],
+    "pros": ['div.pros-cell > ul'],
+    "cons":['div.cons-cell > ul'], 
+    "useful":['button.vote-yes', "data-total-vote"],
+    "useless":['button.vote-no', "data-total-vote"],
+    "purchased":['div.product-review-pz'],
+    "purchase_date":['span.review-time > time:nth-of-type(1)',"datetime"],
+    "review_date":['span.review-time > time:nth-of-type(2)',"datetime"]
+}
 
+#funkcja do usuwania białych znaków
+def remove_whitespace(text):
+    for char in ["\n", "\r"]:
+        try:
+            return text.replace(char, ". ")
+        except AttributeError:
+            pass
 
+#adres URL strony z opiniami
+url_prefix = "https://www.ceneo.pl"
+product_id = input("Podaj kod produktu: ")
+url_postfix = "#tab=reviews"
+url = url_prefix+"/"+product_id+url_postfix
 
-#wybranie kodu strony fragmentów odpowiadających poszczególnym opiniom
-opinions = page_tree.select("li.review-box")
-print(type(opinions))
+#pusta lista na opinie
+opinions_list = []
 
+while url is not None:
+    #pobranie kodu HTML strony z adresu URL
+    page_response = requests.get(url)
+    page_tree = BeautifulSoup(page_response.text, 'html.parser')
 
-#ekstrakcja składowych dla pierwszej opinii z listy
-opinion = opinions[0]
-opinion_id = opinion["data-entry-id"].pop().string
-author = opinion.select('div.reviewer-name-line').pop().string
-recommendation = opinion.select('div.product-review-summary > mm').pop().string
-stars = opinion.select('span.review-score-count').pop().string
-confirmed = opinion.select('div.product-reviev-pz').pop().string
-# date_out = opinion.select('span.review-time > time["datetime"]')
-# date_buy = opinion.select('span.review-time > time["datetime"]')
-useful = opinion.select('button.vote-yes').pop()["data-total-vote"]
-print(useful)
-useless = opinion.select('button.vote-no').pop()["data-total-vote"]
-content = opinion.select('p.product-redev-body').pop().get_text()
-# cons = opinion.select('div.cons-cell > ul')
-# pros = opinion.select('div.pros-cell > ul')
+    #wybranie z kodu strony fragmentów odpowiadających poszczególnym opiniom
+    opinions = page_tree.select("li.js_product-review")
+    
+    #ekstrakcja składowyh dla pojedynczej opinii z listy
+    for opinion in opinions: 
+      
+        features = {key:extract_feature(opinion, *args)
+                    for key, args in selectors.items()}
+        features["opinion_id"] = int(opinion["data-entry-id"])
+        features["purchased"] = True if features["purchased"] == "Opinia potwierdzona zakupem" else False
+        features["useful"] = int(features["useful"])
+        features["useless"] = int(features["useless"])
+        # features["content"] = features["content"].replace("\n", ". ")
+        # try:
+        #     features["pros"] = features["pros"].replace("\n", ". ")
+        # except AttributeError:
+        #     pass
+        # try:
+        #     features["cons"] = features["cons"].replace("\n", ". ")
+        # except AttributeError:
+        #     pass
+        
+        opinions_list.append(features)
 
-# - czy potwierdzona zakupem: div.product-reviev-pz
-# - data wystawienia: span.review-time > time["datetime"] - pierwsze wystąpienie
-# - data zakupu: span.review-time > time["datetime"] - drugie wystąpienie
-# - przydatna: button.votes-yes["data-total-vote"]
-# - nieprzydatna: button.votes-no["data-total-vote"]
-# - treść: p.product-redev-body
-# - wady: div.cons-cell > ul
-# - zalety: div.pros-cell > ul
+    try:
+        url = url_prefix+page_tree.select("a.pagination__next").pop()["href"]
+    except IndexError:
+        url = None
+
+    print("url:",url)
+
+with open("opinions/"+product_id+".json", 'w', encoding='utf-8') as fp:
+    json.dump(opinions_list, fp, ensure_ascii=False, indent=4)

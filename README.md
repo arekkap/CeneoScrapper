@@ -32,7 +32,7 @@
         /run.py  
         /config.py  
         /app  
-            /__init__.py
+            /\_\_init\_\_.py
             /routes.py  
             /models.py  
             /scraper.py

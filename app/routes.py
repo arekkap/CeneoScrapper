@@ -8,16 +8,21 @@ app.config['SECRET_KEY'] = "Hasta la Vista"
 @app.route('/index')
 def index():
     return render_template('index.html')
-@app.route('/extract')
+@app.route('/extract', methods = ['POST', 'GET'])
 def extract():
-    if request.method == "POST":
+    form = ProductForm()
+    if form.validate_on_submit():
         return "Przesłano formularz"
     form = ProductForm()
-    return render_template("extraction.html", form=form)
+    return render_template("extract.html", form=form)
 
 @app.route('/products')
 def products():
-    return "Podaj kod produktu do pobrania opinii"
+    pass
+
+@app.route('/product/<product_id>')
+def product():
+    pass
 
 @app.route('/about')
 def about():

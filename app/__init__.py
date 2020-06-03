@@ -1,5 +1,5 @@
 #import bibliotek
-from flask import Flask, render_template
+from flask import Flask
 
 #utworzenie instancji(obiektu) klasy Flask reprezentującej aplikację
 app = Flask(__name__)

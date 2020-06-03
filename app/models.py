@@ -12,7 +12,7 @@ class Product():
         self.name = name
         self.opinions = opinions
 
-def extract_product(self):
+    def extract_product(self):
         page_response = requests.get("https://www.ceneo.pl/"+self.product_id)
         page_tree = BeautifulSoup(page_response.text, 'html.parser')
         self.name = page_tree.select("h1.product-name").pop().get_text().strip()
@@ -48,30 +48,28 @@ def extract_product(self):
             self.opinions = opinions_list
             print(len(self.opinions))
 
-def __str__(self):
-    return f'product id: {self.product_id}\n nazwa: {self.name}\n\n'+'\n'.join(str(opinion) for opinion in self.opinions)
+    def __str__(self):
+        return f'product id: {self.product_id}\n nazwa: {self.name}\n\n'+'\n'.join(str(opinion) for opinion in self.opinions)
 
-def __dict__(self):
+    def __dict__(self):
         return {
             "product id": self.product_id,
             "product name": self.name,
             "opinions": [opinion.__dict__() for opinion in self.opinions]
         }
 
-def save_product(self):
-    with open("app/opinions/"+self.product_id+".json", 'w', encoding="UTF-8") as fp:
+    def save_product(self):
+        with open("app/opinions/"+self.product_id+".json", 'w', encoding="UTF-8") as fp:
             json.dump(self.__dict__(), fp, ensure_ascii=False, separators=(",",": "), indent=4 )
 
-def read_product(self, product_id):
-    with open("app/opinions/"+product_id+".json", 'r') as f:
-        pr = json.loads(f)
-    self.product_id = product_id
-    self.name = pr['name']
-    opinions = pr['opinions']
-    for opinion in opinions:
-        op = Opinion()
-        op.from_dict(opinion)
-        self.opinions.append(op)
+    def read_product(self):
+        with open("app/opinions/"+self.product_id+".json", 'r', encoding="UTF-8") as fp:
+            pr = json.load(fp)
+        self.name = pr['product name']
+        opinions = pr['opinions']
+        for opinion in opinions:
+            op = Opinion(**opinion)
+            self.opinions.append(op)
 
 
 class Opinion:
@@ -106,7 +104,7 @@ class Opinion:
         self.review_date = review_date
     #reprezentacja tekstowa obiektu klasy
     def __str__(self):
-        return f'opinion id: {self.opinion_id}\nauthor: {self.author}\npros: {self.pros}\n'
+        return '\n'.join(key+': '+('' if getattr(self,key) is None else str(getattr(self,key))) for key in self.selectors.keys())
     
     #reprezentacja słownikowa obiektu
     def __dict__(self):
@@ -119,22 +117,21 @@ class Opinion:
         for key, args in self.selectors.items():
             setattr(self, key, extract_feature(opinion, *args))
         self.opinion_id = int(opinion["data-entry-id"])
-        pass
+        
     def transform_opinion(self):
         self.purchased = True if self.purchased == "Opinia potwierdzona zakupem" else False
         self.useful = int(self.useful)
         self.useless = int(self.useless)
         self.content = remove_whitespaces(self.content)
-        self.pros = remove_whitespaces(self.pros)
-        self.cons = remove_whitespaces(self.cons)
+        try:
+            self.pros = remove_whitespaces(self.pros).replace("Zalety. ", "")
+        except AttributeError:
+            pass
+        try:
+            self.cons = remove_whitespaces(self.cons).replace("Wady. ", "")
+        except AttributeError:
+            pass
 
     def from_dict(self, opinion_dict):
         for key, value in opinion_dict.items():
             setattr(self, key, value)
-        
-# product = Product("91074691")
-# product.extract_product()
-
-
-opinion = Opinion()
-print(opinion) 
